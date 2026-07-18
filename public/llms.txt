@@ -1,0 +1,11 @@
+# Pocket Scribe
+
+> A personal finance tracker for managing books, transactions, transfers, and analyzing spending trends across multiple accounts and members.
+
+Pocket Scribe helps users record income, expenses, and transfers across multiple books and accounts, visualize financial trends, and drill down into category, account, or member breakdowns.
+
+## Pages
+
+- [Home](/): Dashboard with balance overview, transaction history, and holiday countdown.
+- [Analysis](/analysis): Charts and breakdowns for income, expenses, and financial trends over time.
+- [Sign In](/auth): Authentication page for accessing the app.
