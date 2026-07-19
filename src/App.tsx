@@ -13,6 +13,7 @@ import DailyTransactionsPage from "./pages/DailyTransactions";
 import FilteredTransactions from "./pages/FilteredTransactions";
 import WandaBirthday from "./pages/WandaBirthday";
 import HolidayCountdownPage from "./pages/HolidayCountdownPage";
+import SpecialEvent from "./pages/SpecialEvent";
 import Auth from "./pages/Auth";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { FinanceProvider } from "./context/FinanceContext";
@@ -33,6 +34,7 @@ const App = () => (
             <Route path="/analysis" element={<ProtectedRoute><Analysis /></ProtectedRoute>} />
             <Route path="/wanda-birthday" element={<ProtectedRoute><WandaBirthday /></ProtectedRoute>} />
             <Route path="/holiday-countdown" element={<ProtectedRoute><HolidayCountdownPage /></ProtectedRoute>} />
+            <Route path="/special" element={<ProtectedRoute><SpecialEvent /></ProtectedRoute>} />
             <Route path="/add-transaction" element={<ProtectedRoute><AddTransaction /></ProtectedRoute>} />
             <Route path="/transactions/:date" element={<ProtectedRoute><DailyTransactionsPage /></ProtectedRoute>} />
             <Route path="/filtered-transactions/:filterType/:filterId/:transactionType/:month/:year" element={<ProtectedRoute><FilteredTransactions /></ProtectedRoute>} />

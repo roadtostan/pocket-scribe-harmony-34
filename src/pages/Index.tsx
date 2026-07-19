@@ -20,6 +20,7 @@ import { toast } from 'sonner';
 import CalendarView from '@/components/CalendarView';
 import confetti from 'canvas-confetti';
 import HolidayCountdown from '@/components/HolidayCountdown';
+import SpecialEventBanner from '@/components/SpecialEventBanner';
 
 const Index = () => {
   const { 
@@ -109,6 +110,7 @@ const Index = () => {
   return (
     <Layout>
       <div className="pt-2 pb-20">
+        <SpecialEventBanner />
         <HolidayCountdown />
         {/* Birthday Banner 
         <div className="mb-4 mx-4 relative overflow-hidden">
