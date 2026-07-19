@@ -97,6 +97,161 @@ export type Database = {
         }
         Relationships: []
       }
+      event_config: {
+        Row: {
+          birthday_date: string
+          created_at: string
+          event_key: string
+          gift_close_date: string
+          gift_open_date: string
+          id: string
+          letter_content: string | null
+          letter_date: string
+          timezone: string
+          updated_at: string
+        }
+        Insert: {
+          birthday_date: string
+          created_at?: string
+          event_key: string
+          gift_close_date: string
+          gift_open_date: string
+          id?: string
+          letter_content?: string | null
+          letter_date: string
+          timezone?: string
+          updated_at?: string
+        }
+        Update: {
+          birthday_date?: string
+          created_at?: string
+          event_key?: string
+          gift_close_date?: string
+          gift_open_date?: string
+          id?: string
+          letter_content?: string | null
+          letter_date?: string
+          timezone?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      gift_categories: {
+        Row: {
+          created_at: string
+          display_order: number
+          event_key: string
+          icon: string | null
+          id: string
+          is_active: boolean
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          display_order?: number
+          event_key?: string
+          icon?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+        }
+        Update: {
+          created_at?: string
+          display_order?: number
+          event_key?: string
+          icon?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+        }
+        Relationships: []
+      }
+      gift_items: {
+        Row: {
+          category_id: string
+          created_at: string
+          description: string | null
+          display_order: number
+          id: string
+          image_url: string | null
+          is_active: boolean
+          name: string
+        }
+        Insert: {
+          category_id: string
+          created_at?: string
+          description?: string | null
+          display_order?: number
+          id?: string
+          image_url?: string | null
+          is_active?: boolean
+          name: string
+        }
+        Update: {
+          category_id?: string
+          created_at?: string
+          description?: string | null
+          display_order?: number
+          id?: string
+          image_url?: string | null
+          is_active?: boolean
+          name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gift_items_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "gift_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      gift_selections: {
+        Row: {
+          category_id: string
+          created_at: string
+          event_key: string
+          gift_item_id: string
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          category_id: string
+          created_at?: string
+          event_key?: string
+          gift_item_id: string
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          category_id?: string
+          created_at?: string
+          event_key?: string
+          gift_item_id?: string
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gift_selections_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "gift_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gift_selections_gift_item_id_fkey"
+            columns: ["gift_item_id"]
+            isOneToOne: false
+            referencedRelation: "gift_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       members: {
         Row: {
           book_id: string
