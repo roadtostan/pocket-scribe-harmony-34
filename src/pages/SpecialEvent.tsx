@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import Layout from '@/components/Layout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -8,10 +8,15 @@ import { supabase } from '@/integrations/supabase/client';
 import { useEventConfig, useNow } from '@/hooks/useEventConfig';
 import { getEventState, getNextMilestone } from '@/lib/specialEvent';
 import CountdownDisplay from '@/components/special/CountdownDisplay';
+import BirthdaySurprise from '@/components/special/BirthdaySurprise';
+import GiftItemForm, { type GiftItem } from '@/components/special/GiftItemForm';
 import { toast } from 'sonner';
-import { ArrowLeft, Check, Gift, Lock, Mail, Sparkles } from 'lucide-react';
+import { ArrowLeft, Check, Gift, Lock, Mail, Pencil, Plus, Sparkles } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { useFinance } from '@/context/FinanceContext';
+import type { EventState } from '@/lib/specialEvent';
+
+const EVENT_STATES: EventState[] = ['COUNTDOWN', 'GIFT_SELECTION', 'GIFT_CLOSED', 'LETTER', 'HAPPY_BIRTHDAY'];
 
 type Category = { id: string; name: string; icon: string | null; display_order: number };
 type Item = { id: string; category_id: string; name: string; image_url: string | null; description: string | null; display_order: number };
@@ -19,17 +24,25 @@ type Selection = { category_id: string; gift_item_id: string; user_id: string };
 
 export default function SpecialEvent() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { config, loading } = useEventConfig();
   const now = useNow(1000);
   const { user } = useFinance();
+
+  const urlState = searchParams.get('state');
+  const [overrideState, setOverrideState] = useState<EventState | null>(
+    urlState && (EVENT_STATES as string[]).includes(urlState) ? (urlState as EventState) : null
+  );
 
   const [categories, setCategories] = useState<Category[]>([]);
   const [items, setItems] = useState<Item[]>([]);
   const [selections, setSelections] = useState<Selection[]>([]);
   const [activeCategory, setActiveCategory] = useState<Category | null>(null);
   const [letterOpen, setLetterOpen] = useState(false);
+  const [formOpen, setFormOpen] = useState(false);
+  const [editingItem, setEditingItem] = useState<Item | null>(null);
 
-  const state = config ? getEventState(config, now) : null;
+  const state = config ? (overrideState ?? getEventState(config, now)) : null;
   const locked = state === 'GIFT_CLOSED' || state === 'LETTER' || state === 'HAPPY_BIRTHDAY';
 
   useEffect(() => {
@@ -89,26 +102,23 @@ export default function SpecialEvent() {
   return (
     <Layout>
       <div className="pb-24">
-        {/* Hero */}
-        <div className="bg-gradient-to-br from-pink-500 via-fuchsia-500 to-purple-600 text-white px-4 pt-4 pb-6">
-          <button onClick={() => navigate('/')} className="flex items-center gap-1 text-sm opacity-90 mb-3">
-            <ArrowLeft size={16} /> Back
-          </button>
-          <div className="flex items-center gap-2 mb-4">
-            <Sparkles /> <h1 className="text-xl font-bold">Special Event</h1>
-          </div>
+        {state === 'HAPPY_BIRTHDAY' ? (
+          <BirthdaySurprise onBack={() => navigate('/')} onReadLetter={() => setLetterOpen(true)} />
+        ) : (
+          <>
+            {/* Hero */}
+            <div className="bg-gradient-to-br from-pink-500 via-fuchsia-500 to-purple-600 text-white px-4 pt-4 pb-6">
+              <button onClick={() => navigate('/')} className="flex items-center gap-1 text-sm opacity-90 mb-3">
+                <ArrowLeft size={16} /> Back
+              </button>
+              <div className="flex items-center gap-2 mb-4">
+                <Sparkles /> <h1 className="text-xl font-bold">Special Event</h1>
+              </div>
 
-          {state === 'HAPPY_BIRTHDAY' ? (
-            <div className="text-center py-6">
-              <h2 className="text-3xl font-bold mb-2">🎂 Happy Birthday!</h2>
-              <p className="opacity-90">Selamat ulang tahun, sayang 💕</p>
+              <CountdownDisplay target={milestone.target} label={milestone.label} />
             </div>
-          ) : (
-            <CountdownDisplay target={milestone.target} label={milestone.label} />
-          )}
-        </div>
 
-        <div className="p-4 space-y-4">
+            <div className="p-4 space-y-4">
           {state === 'COUNTDOWN' && (
             <Card>
               <CardContent className="p-4 text-center">
@@ -169,23 +179,9 @@ export default function SpecialEvent() {
               </CardContent>
             </Card>
           )}
-
-          {state === 'HAPPY_BIRTHDAY' && (
-            <>
-              <Card>
-                <CardContent className="p-6 text-center">
-                  <p className="text-base">
-                    Hari ini adalah harimu. Semoga setiap doa terwujud, setiap tawa jadi berlipat,
-                    dan cinta selalu menemanimu. 🎉
-                  </p>
-                </CardContent>
-              </Card>
-              <Button variant="outline" className="w-full" onClick={() => setLetterOpen(true)}>
-                Baca surat lagi 💌
-              </Button>
-            </>
-          )}
-        </div>
+            </div>
+          </>
+        )}
 
         {/* Category items dialog */}
         <Dialog open={!!activeCategory} onOpenChange={o => !o && setActiveCategory(null)}>
@@ -204,7 +200,20 @@ export default function SpecialEvent() {
               {items.filter(i => i.category_id === activeCategory?.id).map(i => {
                 const isSelected = selectionByCategory.get(activeCategory!.id)?.gift_item_id === i.id;
                 return (
-                  <Card key={i.id} className={isSelected ? 'ring-2 ring-pink-500' : ''}>
+                  <Card key={i.id} className={`relative ${isSelected ? 'ring-2 ring-pink-500' : ''}`}>
+                    {!locked && (
+                      <button
+                        type="button"
+                        onClick={e => {
+                          e.stopPropagation();
+                          setEditingItem(i);
+                          setFormOpen(true);
+                        }}
+                        className="absolute top-1.5 right-1.5 z-10 bg-white/80 dark:bg-black/60 rounded-full p-1.5 shadow hover:bg-white dark:hover:bg-black"
+                      >
+                        <Pencil size={14} />
+                      </button>
+                    )}
                     <CardContent className="p-2">
                       <a
                         href={i.description ?? undefined}
@@ -232,8 +241,40 @@ export default function SpecialEvent() {
                 );
               })}
             </div>
+            {!locked && activeCategory && (
+              <div className="mt-4 border-t pt-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setEditingItem(null);
+                    setFormOpen(true);
+                  }}
+                >
+                  <Plus className="mr-1 h-4 w-4" /> Add Item
+                </Button>
+              </div>
+            )}
           </DialogContent>
         </Dialog>
+
+        {/* Add / Edit gift item dialog */}
+        <GiftItemForm
+          open={formOpen}
+          onOpenChange={setFormOpen}
+          categoryId={activeCategory?.id ?? ''}
+          item={editingItem}
+          onSaved={item =>
+            setItems(prev => {
+              const exists = prev.some(p => p.id === item.id);
+              return exists
+                ? prev.map(p => (p.id === item.id ? { ...p, ...item } : p))
+                : [...prev, item as Item];
+            })
+          }
+          onDeleted={id => setItems(prev => prev.filter(p => p.id !== id))}
+        />
 
         {/* Letter dialog */}
         <Dialog open={letterOpen} onOpenChange={setLetterOpen}>
