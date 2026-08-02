@@ -14,14 +14,14 @@ import confetti from 'canvas-confetti';
 import { useFinance } from '@/context/FinanceContext';
 
 type Category = { id: string; name: string; icon: string | null; display_order: number };
-type Item = { id: string; category_id: string; name: string; image_url: string | null; display_order: number };
+type Item = { id: string; category_id: string; name: string; image_url: string | null; description: string | null; display_order: number };
 type Selection = { category_id: string; gift_item_id: string; user_id: string };
 
 export default function SpecialEvent() {
   const navigate = useNavigate();
   const { config, loading } = useEventConfig();
   const now = useNow(1000);
-  const { user } = useFinance() as any;
+  const { user } = useFinance();
 
   const [categories, setCategories] = useState<Category[]>([]);
   const [items, setItems] = useState<Item[]>([]);
@@ -206,9 +206,17 @@ export default function SpecialEvent() {
                 return (
                   <Card key={i.id} className={isSelected ? 'ring-2 ring-pink-500' : ''}>
                     <CardContent className="p-2">
-                      <div className="aspect-square bg-muted rounded-md overflow-hidden mb-2">
+                      <a
+                        href={i.description ?? undefined}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={e => {
+                          if (!i.description) e.preventDefault();
+                        }}
+                        className="block aspect-square bg-muted rounded-md overflow-hidden mb-2"
+                      >
                         {i.image_url && <img src={i.image_url} alt={i.name} className="w-full h-full object-cover" loading="lazy" />}
-                      </div>
+                      </a>
                       <div className="text-sm font-medium line-clamp-2 min-h-[2.5rem]">{i.name}</div>
                       <Button
                         size="sm"
