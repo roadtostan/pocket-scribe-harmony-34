@@ -114,12 +114,25 @@ const GiftItemForm = ({ open, onOpenChange, categoryId, item, onSaved, onDeleted
     return [];
   };
 
+  const blockedMarketplaceName = (url: string): string | null => {
+    try {
+      const host = new URL(url).hostname.toLowerCase();
+      if (host.includes('shopee')) return 'Shopee';
+      if (host.includes('tiktok')) return 'TikTok Shop';
+    } catch {
+      // ignore
+    }
+    return null;
+  };
+
   const handleFetchImages = async () => {
     const marketplaceUrl = description.trim();
     if (!marketplaceUrl) {
       toast.error('Please fill the marketplace URL first');
       return;
     }
+
+    const blocked = blockedMarketplaceName(marketplaceUrl);
 
     setFetchingImages(true);
     setFetchError(null);
@@ -132,15 +145,28 @@ const GiftItemForm = ({ open, onOpenChange, categoryId, item, onSaved, onDeleted
         body: { url: marketplaceUrl },
       });
       if (error) throw new Error(error.message);
+      if (data?.error === 'blocked') {
+        setFetchingImages(false);
+        setFetchError(
+          blocked
+            ? `${blocked} blocks automatic image extraction with anti-bot protection. Open the product in your browser, right-click the image → "Copy image address", and paste it in the Image URL field.`
+            : (data.message as string) ?? 'The page blocks automatic image extraction'
+        );
+        return;
+      }
       if (Array.isArray(data?.images)) images = sanitizeImageUrls(data.images);
     } catch {
-      images = await fetchImagesViaProxy(marketplaceUrl);
+      if (!blocked) images = await fetchImagesViaProxy(marketplaceUrl);
     }
 
     setFetchingImages(false);
 
     if (!images.length) {
-      setFetchError('No images found — the marketplace page may block image extraction');
+      setFetchError(
+        blocked
+          ? `${blocked} blocks automatic image extraction with anti-bot protection. Open the product in your browser, right-click the image → "Copy image address", and paste it in the Image URL field.`
+          : 'No images found — the marketplace page may block image extraction'
+      );
       return;
     }
 

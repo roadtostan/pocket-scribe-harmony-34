@@ -5,13 +5,14 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { supabase } from '@/integrations/supabase/client';
-import { useEventConfig, useNow } from '@/hooks/useEventConfig';
+import { EVENT_KEY, useEventConfig, useNow } from '@/hooks/useEventConfig';
 import { getEventState, getNextMilestone } from '@/lib/specialEvent';
 import CountdownDisplay from '@/components/special/CountdownDisplay';
 import BirthdaySurprise from '@/components/special/BirthdaySurprise';
 import GiftItemForm, { type GiftItem } from '@/components/special/GiftItemForm';
+import GiftCart from '@/components/special/GiftCart';
 import { toast } from 'sonner';
-import { ArrowLeft, Check, Gift, Lock, Mail, Pencil, Plus, Sparkles } from 'lucide-react';
+import { ArrowLeft, Check, Gift, Lock, Mail, Pencil, Plus, ShoppingCart, Sparkles } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { useFinance } from '@/context/FinanceContext';
 import type { EventState } from '@/lib/specialEvent';
@@ -38,6 +39,7 @@ export default function SpecialEvent() {
   const [items, setItems] = useState<Item[]>([]);
   const [selections, setSelections] = useState<Selection[]>([]);
   const [activeCategory, setActiveCategory] = useState<Category | null>(null);
+  const [cartOpen, setCartOpen] = useState(false);
   const [letterOpen, setLetterOpen] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<Item | null>(null);
@@ -69,24 +71,35 @@ export default function SpecialEvent() {
     }
   }, [state]);
 
-  const selectionByCategory = useMemo(() => {
-    const m = new Map<string, Selection>();
-    for (const s of selections) if (user && s.user_id === user.id) m.set(s.category_id, s);
-    return m;
-  }, [selections, user]);
+  const mySelections = useMemo(
+    () => (user ? selections.filter(s => s.user_id === user.id) : []),
+    [selections, user]
+  );
 
-  const handleSelect = async (item: Item) => {
-    if (!user || !activeCategory || locked) return;
+  const selectedIds = useMemo(() => new Set(mySelections.map(s => s.gift_item_id)), [mySelections]);
+
+  const handleAddToCart = async (item: Item) => {
+    if (!user || locked) return;
     const { error } = await supabase.from('gift_selections').upsert(
-      { user_id: user.id, category_id: activeCategory.id, gift_item_id: item.id, event_key: 'birthday_2026' },
-      { onConflict: 'user_id,category_id,event_key' }
+      { user_id: user.id, category_id: item.category_id, gift_item_id: item.id, event_key: EVENT_KEY },
+      { onConflict: 'user_id,gift_item_id,event_key' }
     );
     if (error) { toast.error('Failed to save'); return; }
-    setSelections(prev => {
-      const other = prev.filter(s => !(s.user_id === user.id && s.category_id === activeCategory.id));
-      return [...other, { user_id: user.id, category_id: activeCategory.id, gift_item_id: item.id }];
-    });
-    toast.success(`Selected: ${item.name}`);
+    setSelections(prev => [...prev, { user_id: user.id, category_id: item.category_id, gift_item_id: item.id }]);
+    toast.success(`Added to cart: ${item.name}`);
+  };
+
+  const handleRemoveFromCart = async (itemId: string) => {
+    if (!user || locked) return;
+    const { error } = await supabase
+      .from('gift_selections')
+      .delete()
+      .eq('user_id', user.id)
+      .eq('gift_item_id', itemId)
+      .eq('event_key', EVENT_KEY);
+    if (error) { toast.error('Failed to remove'); return; }
+    setSelections(prev => prev.filter(s => !(s.user_id === user.id && s.gift_item_id === itemId)));
+    toast.success('Removed from cart');
   };
 
   if (loading || !config) {
@@ -141,29 +154,44 @@ export default function SpecialEvent() {
                   </span>
                 )}
               </div>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                {categories.map(c => {
-                  const sel = selectionByCategory.get(c.id);
-                  const selItem = items.find(i => i.id === sel?.gift_item_id);
-                  return (
-                    <Card key={c.id} className="cursor-pointer active:scale-95 transition" onClick={() => setActiveCategory(c)}>
-                      <CardContent className="p-3 text-center">
-                        <div className="text-3xl mb-1">{c.icon}</div>
-                        <div className="font-medium text-sm">{c.name}</div>
-                        <div className="text-xs mt-1">
-                          {selItem ? (
-                            <span className="text-green-600 flex items-center justify-center gap-1">
-                              <Check size={12} /> {selItem.name}
-                            </span>
-                          ) : (
-                            <span className="text-muted-foreground">Not selected</span>
-                          )}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  );
-                })}
-              </div>
+
+              {!locked && (
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                  {categories.map(c => {
+                    const count = mySelections.filter(s => s.category_id === c.id).length;
+                    return (
+                      <Card key={c.id} className="cursor-pointer active:scale-95 transition" onClick={() => setActiveCategory(c)}>
+                        <CardContent className="p-3 text-center">
+                          <div className="text-3xl mb-1">{c.icon}</div>
+                          <div className="font-medium text-sm">{c.name}</div>
+                          <div className="text-xs mt-1">
+                            {count > 0 ? (
+                              <span className="text-green-600 flex items-center justify-center gap-1">
+                                <Check size={12} /> {count} selected
+                              </span>
+                            ) : (
+                              <span className="text-muted-foreground">Not selected</span>
+                            )}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
+              )}
+
+              {locked && (
+                <Card>
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="font-semibold flex items-center gap-2">
+                        <ShoppingCart size={16} /> Your Cart ({mySelections.length})
+                      </h4>
+                    </div>
+                    <GiftCart selections={mySelections} categories={categories} items={items} locked />
+                  </CardContent>
+                </Card>
+              )}
             </div>
           )}
 
@@ -198,7 +226,7 @@ export default function SpecialEvent() {
             )}
             <div className="grid grid-cols-2 gap-3">
               {items.filter(i => i.category_id === activeCategory?.id).map(i => {
-                const isSelected = selectionByCategory.get(activeCategory!.id)?.gift_item_id === i.id;
+                const isSelected = selectedIds.has(i.id);
                 return (
                   <Card key={i.id} className={`relative ${isSelected ? 'ring-2 ring-pink-500' : ''}`}>
                     {!locked && (
@@ -232,9 +260,13 @@ export default function SpecialEvent() {
                         className="w-full mt-2"
                         variant={isSelected ? 'secondary' : 'default'}
                         disabled={locked}
-                        onClick={() => handleSelect(i)}
+                        onClick={() => (isSelected ? handleRemoveFromCart(i.id) : handleAddToCart(i))}
                       >
-                        {isSelected ? <><Check size={14} className="mr-1" />Selected</> : 'Select'}
+                        {isSelected ? (
+                          <><Check size={14} className="mr-1" />In Cart</>
+                        ) : (
+                          <><ShoppingCart size={14} className="mr-1" />Add to Cart</>
+                        )}
                       </Button>
                     </CardContent>
                   </Card>
@@ -256,6 +288,45 @@ export default function SpecialEvent() {
                 </Button>
               </div>
             )}
+          </DialogContent>
+        </Dialog>
+
+        {/* Floating cart button */}
+        {state === 'GIFT_SELECTION' && (
+          <button
+            type="button"
+            onClick={() => setCartOpen(true)}
+            className="fixed bottom-20 right-4 z-50 bg-pink-500 hover:bg-pink-600 text-white rounded-full p-3 shadow-lg"
+          >
+            <ShoppingCart size={22} />
+            {mySelections.length > 0 && (
+              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full min-w-[1.25rem] h-5 flex items-center justify-center px-1">
+                {mySelections.length}
+              </span>
+            )}
+          </button>
+        )}
+
+        {/* Cart dialog */}
+        <Dialog open={cartOpen} onOpenChange={setCartOpen}>
+          <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>
+                <ShoppingCart size={18} className="inline mr-1" /> Your Cart ({mySelections.length})
+              </DialogTitle>
+            </DialogHeader>
+            {locked && (
+              <div className="text-xs bg-muted rounded-md p-2 flex items-center gap-2">
+                <Lock size={12} /> Pemilihan sudah ditutup
+              </div>
+            )}
+            <GiftCart
+              selections={mySelections}
+              categories={categories}
+              items={items}
+              locked={locked}
+              onRemove={handleRemoveFromCart}
+            />
           </DialogContent>
         </Dialog>
 

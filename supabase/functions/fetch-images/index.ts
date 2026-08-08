@@ -41,6 +41,15 @@ function isImageLike(url: string): boolean {
 
 const ABSOLUTE_IMAGE_PATTERN = /https?:\/\/[^\s"'<>\\]+\.(?:jpe?g|png|webp|gif|avif)(?:\?[^\s"'<>\\]*)?/gi
 
+function isBlockedPage(html: string): boolean {
+  const head = html.slice(0, 20000).toLowerCase()
+  if (head.includes('security check')) return true
+  if (head.includes('captcha')) return true
+  if (head.includes('verify you are human')) return true
+  if (head.includes('slido') || head.includes('frost')) return true
+  return false
+}
+
 function extractImages(html: string, baseUrl: URL): string[] {
   const found = new Set<string>()
   const add = (src: string) => {
@@ -187,6 +196,12 @@ serve(async req => {
     }
 
     const html = await res.text()
+    if (isBlockedPage(html)) {
+      return json({
+        error: 'blocked',
+        message: 'The page is protected by anti-bot / captcha and blocks automatic image extraction.',
+      })
+    }
     const images = extractImages(html, baseUrl)
 
     return json({ url: baseUrl.toString(), images })
